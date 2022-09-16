@@ -1,0 +1,143 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/JSP_Servlet/Servlet.java to edit this template
+ */
+package controller;
+
+import Entity.basket;
+import dao.OrderDAO;
+import dao.UserDAO;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import javax.servlet.ServletException;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+/**
+ *
+ * @author USER
+ */
+public class AmountServlet extends HttpServlet {
+
+    /**
+     * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
+     * methods.
+     *
+     * @param request servlet request
+     * @param response servlet response
+     * @throws ServletException if a servlet-specific error occurs
+     * @throws IOException if an I/O error occurs
+     */
+    protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        response.setContentType("text/html;charset=UTF-8");
+        try ( PrintWriter out = response.getWriter()) {
+            /* TODO output your page here. You may use following sample code. */
+            out.println("<!DOCTYPE html>");
+            out.println("<html>");
+            out.println("<head>");
+            out.println("<title>Servlet AmountServlet</title>");
+            out.println("</head>");
+            out.println("<body>");
+            out.println("<h1>Servlet AmountServlet at " + request.getContextPath() + "</h1>");
+            out.println("</body>");
+            out.println("</html>");
+        }
+    }
+
+    // <editor-fold defaultstate="collapsed" desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
+    /**
+     * Handles the HTTP <code>GET</code> method.
+     *
+     * @param request servlet request
+     * @param response servlet response
+     * @throws ServletException if a servlet-specific error occurs
+     * @throws IOException if an I/O error occurs
+     */
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        //-------------------------------
+        String username = null;
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null || (cookies.length == 1 && cookies[0].getName().equals("JSESSIONID"))) {
+//            request.getRequestDispatcher("login.jsp").forward(request, response);
+        } else {
+            UserDAO dao = new UserDAO();
+            request.setAttribute("user", dao.getCookie(cookies));
+            username = dao.getCookie(cookies).getUsername();
+        }
+        //-----------------------------------------
+        String action = request.getParameter("action"); //increase, decrease, remove, checkout, view
+        String id = request.getParameter("id");
+        int total = 0;
+        OrderDAO dao = new OrderDAO();
+        ArrayList<basket> bList = dao.getAllOrderOfUser(username);
+        if (bList != null) {
+            if (action.equals("remove")) {
+                dao.deleteOrder(id);
+                request.setAttribute("basketList", dao.getAllOrderOfUser(username));
+            } else if (action.equals("dec")) {
+                int oldQuantity = Integer.parseInt(dao.getIdFrom("Orders", "orderID", id, 6));
+                if (oldQuantity == 1) {
+                    dao.deleteOrder(id);
+                } else {
+                    dao.updateOrder(String.valueOf(oldQuantity - 1), id, "mount");
+                    dao.updateOrder(String.valueOf((oldQuantity - 1) * 13), id, "total");
+                }
+                request.setAttribute("basketList", dao.getAllOrderOfUser(username));
+            } else if (action.equals("inc")) {
+                int oldQuantity = Integer.parseInt(dao.getIdFrom("Orders", "orderID", id, 6));
+                dao.updateOrder(String.valueOf(oldQuantity + 1), id, "mount");
+                dao.updateOrder(String.valueOf((oldQuantity + 1) * 13), id, "total");
+                request.setAttribute("basketList", dao.getAllOrderOfUser(username));
+            } else if (action.equals("checkout")) {
+                String currentTime= new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime());
+                for (basket b : bList) {
+                    dao.updateOrder(currentTime, b.getId(), "checkoutTime");
+                }
+                request.setAttribute("success", "Payment Success");
+            } else if (action.equals("view")) {
+                request.setAttribute("basketList", dao.getAllOrderOfUser(username));
+            }
+            bList = dao.getAllOrderOfUser(username);
+            for (basket b : bList) {
+                total += b.getTotal();
+            }
+        }
+        request.getSession().setAttribute("AMOUNT", dao.getToTalOrder(username));
+        request.setAttribute("TOTAL", total);
+        request.getRequestDispatcher("mytickets.jsp").forward(request, response);
+//        
+    }
+
+    /**
+     * Handles the HTTP <code>POST</code> method.
+     *
+     * @param request servlet request
+     * @param response servlet response
+     * @throws ServletException if a servlet-specific error occurs
+     * @throws IOException if an I/O error occurs
+     */
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        processRequest(request, response);
+    }
+
+    /**
+     * Returns a short description of the servlet.
+     *
+     * @return a String containing servlet description
+     */
+    @Override
+    public String getServletInfo() {
+        return "Short description";
+    }// </editor-fold>
+
+}
